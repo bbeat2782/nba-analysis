@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fa2 import ForceAtlas2
 
+# TODO need a better way
+
 # Load the collected NBA player interaction data
-file_path = "nba_player_interactions_2001_2024.csv"  # Update if needed
+file_path = "nba_player_interactions_2001_2025.csv"  # Update if needed
 df = pd.read_csv(file_path)
 
 seasons = range(2001, 2025)  # Seasons from 2001 to 2024
