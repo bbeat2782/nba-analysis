@@ -60,20 +60,22 @@ This project constructs an evolving **NBA player interaction network** using eve
   - Number of connected components
   - Visualization of weighted adjaceny matrix
     - TODO need to define how to set weights
-  - Edge density (interaction frequency)
 
-- **Degree distribution**:
+- **Degree Distribution**:
   - Separate analysis for **in-degree (received passes)** and **out-degree (passes made)**
   - Identify hubs (high-degree nodes) and compare with a random graph using a **log-log plot**
-  - Fit degree distribution to **power law** and check slope for scale-free properties
   - Compute **expected maximum degree**
   - Compute **average degree** and classify network stage (subcritical/supercritical) using **<k> > 1 or >= ln(N)**
+  - Fit degree distribution to **power law** and check slope for scale-free properties
+
+- **Degree Correlation**:
+  - Compute and plot **k_nn vs. k** to analyze assortativity (team-based vs. star-based passing tendencies)
 
 - **Path Length:**
   - Compute **average shortest path length**, handling disconnected components with harmonic mean
 
 - **Clustering Coefficient:**
-  - Plot **clustering coefficient vs. degree**
+  - Check Global clustering coefficient since our graph is directed
   
 - **Centrality Measures**:
   - **Degree Centrality**: Identifies players involved in frequent interactions.
@@ -82,10 +84,6 @@ This project constructs an evolving **NBA player interaction network** using eve
   - **Hubs and Authorities:**
     - Hubs: Players with **high outgoing edges** (active passers/playmakers).
     - Authorities: Players with **high incoming edges** (finishers/scorers).
-    - Use **bipartite graph**
-
-- **Degree Correlation**:
-  - Compute and plot **k_nn vs. k** to analyze assortativity (team-based vs. star-based passing tendencies)
 
 ---
 
