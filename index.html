@@ -42,7 +42,7 @@
         var allNodes = [], allLinks = [];
 
         // Load JSON file from scripts folder
-        d3.json("graph_data.json", function(error, graph) {
+        d3.json("scripts/graph_data.json", function(error, graph) {
             if (error) {
                 console.error("Error loading JSON:", error);
                 return;
