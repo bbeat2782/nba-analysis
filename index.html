@@ -15,15 +15,19 @@
             padding: 5px;
             font-size: 14px;
             visibility: hidden;
-            position: absolute;
         }
     </style>
 </head>
 <body>
     <h2>NBA Player Passing Network</h2>
     
+    <label for="season-select">Select Season:</label>
+    <select id="season-select" onchange="updateGraph()">
+        <option value="">-- Select a Season --</option>
+    </select>
+
     <label for="team-select">Select Team:</label>
-    <select id="team-select" onchange="searchTeam()">
+    <select id="team-select" onchange="updateGraph()">
         <option value="">-- Select a Team --</option>
     </select>
 
@@ -43,9 +47,8 @@
             .force("x", d3.forceX(width / 2).strength(0.1))
             .force("y", d3.forceY(height / 2).strength(0.1));
 
-        var allNodes = [], allLinks = [], teamNames = new Set();
+        var allNodes = [], allLinks = [], teamNames = new Set(), seasonYears = new Set();
 
-        // Load JSON file
         d3.json("scripts/graph_data.json", function(error, graph) {
             if (error) {
                 console.error("Error loading JSON:", error);
@@ -53,34 +56,95 @@
             }
 
             let inDegreeMap = new Map();
+            let teamNames = new Set();
+            let seasonYears = new Set();
+
             graph.nodes.forEach(node => {
-                inDegreeMap.set(node.id, 0);
-                teamNames.add(node.teamName.trim()); // Collect unique team names
+                inDegreeMap.set(node.id, new Map()); // Initialize nested map for each player
+                teamNames.add(node.teamName.trim());
+                seasonYears.add(node.season);
             });
 
             graph.links.forEach(link => {
                 if (inDegreeMap.has(link.target)) {
-                    inDegreeMap.set(link.target, inDegreeMap.get(link.target) + link.value);
+                    let seasonMap = inDegreeMap.get(link.target);
+                    let currentSeason = link.season;
+
+                    // Initialize season entry if it doesn't exist
+                    if (!seasonMap.has(currentSeason)) {
+                        seasonMap.set(currentSeason, 0);
+                    }
+
+                    // Accumulate assists for the corresponding season
+                    seasonMap.set(currentSeason, seasonMap.get(currentSeason) + link.value);
                 }
             });
 
+            // Assign in-degree values per season
             graph.nodes.forEach(node => {
-                node.inDegree = inDegreeMap.get(node.id) || 0;
+                let seasonMap = inDegreeMap.get(node.id);
+                node.inDegreePerSeason = seasonMap; // Store all seasons separately
+                node.inDegree = seasonMap.get(2024) || 0; // Default to 2024
             });
 
             allNodes = graph.nodes;
             allLinks = graph.links;
 
-            // Populate the dropdown with team names
-            let dropdown = d3.select("#team-select");
-            teamNames.forEach(team => {
-                dropdown.append("option")
+            // Populate season dropdown
+            let seasonDropdown = d3.select("#season-select");
+            let sortedSeasons = Array.from(seasonYears).map(Number).sort((a, b) => a - b);
+
+            sortedSeasons.forEach(season => {
+                seasonDropdown.append("option")
+                    .attr("value", season)
+                    .text(season)
+                    .property("selected", season === 2024);
+            });
+
+            // Sort teams alphabetically and populate dropdown
+            let sortedTeams = Array.from(teamNames).sort();
+            let teamDropdown = d3.select("#team-select");
+
+            sortedTeams.forEach(team => {
+                let option = teamDropdown.append("option")
                     .attr("value", team)
                     .text(team);
+
+                if (team === "Lakers") {
+                    option.property("selected", true);
+                }
             });
 
             drawGraph(allNodes, allLinks);
+            // Call updateGraph() to apply default filters on page load
+            // Default season is 2024 with team as Lakers
+            updateGraph();
         });
+
+
+        function updateGraph() {
+            let selectedSeason = document.getElementById("season-select").value;
+            let selectedTeam = document.getElementById("team-select").value.trim();
+
+            let filteredNodes = allNodes.filter(d =>
+                (selectedSeason === "" || d.season == selectedSeason) &&
+                (selectedTeam === "" || d.teamName.trim() === selectedTeam)
+            );
+
+            // Update each node's in-degree based on the selected season
+            filteredNodes.forEach(node => {
+                node.inDegree = node.inDegreePerSeason.get(parseInt(selectedSeason)) || 0;
+            });
+
+            let filteredNodeIDs = new Set(filteredNodes.map(d => d.id));
+            let filteredLinks = allLinks.filter(d =>
+                filteredNodeIDs.has(d.source) && filteredNodeIDs.has(d.target) &&
+                (selectedSeason === "" || d.season == selectedSeason)
+            );
+
+            drawGraph(filteredNodes, filteredLinks);
+        }
+
 
         function drawGraph(nodes, links) {
             svg.selectAll("*").remove();
@@ -107,8 +171,8 @@
                 .selectAll("circle")
                 .data(nodes)
                 .enter().append("circle")
-                .each(function(d) {  // Ensure full data is bound
-                    d3.select(this).datum(d);  // Explicitly attach all properties
+                .each(function(d) {  
+                    d3.select(this).datum(d);
                 })
                 .attr("r", d => Math.sqrt(d.inDegree) + 5)
                 .attr("fill", d => color(d.teamName.trim()))
@@ -118,20 +182,14 @@
                     .on("drag", dragged)
                     .on("end", dragended));
 
-            // Tooltip for player details
             var tooltip = d3.select("body").append("div")
                 .attr("class", "tooltip")
-                .style("position", "absolute")
-                .style("background", "#fff")
-                .style("border", "1px solid #ccc")
-                .style("padding", "5px")
-                .style("font-size", "14px")
                 .style("visibility", "hidden");
 
             node.on("mouseover", function(event) {
-                let d = d3.select(this).datum();  // Explicitly retrieve bound data
+                let d = d3.select(this).datum();
                 tooltip.style("visibility", "visible")
-                    .html(`<b>${d.playerName || "Unknown"}</b><br>Team: ${d.teamName || "N/A"}<br>In-Degree: ${d.inDegree || 0}`)
+                    .html(`<b>${d.playerName || "Unknown"}</b><br>Team: ${d.teamName || "N/A"}<br>Season: ${d.season}<br>In-Degree: ${d.inDegree || 0}`)
                     .style("top", `${event.pageY + 10}px`)
                     .style("left", `${event.pageX + 10}px`);
             });
@@ -151,24 +209,6 @@
                     .attr("cx", d => d.x)
                     .attr("cy", d => d.y);
             }
-        }
-
-        function searchTeam() {
-            let selectedTeam = document.getElementById("team-select").value.trim();
-
-            if (selectedTeam === "") {
-                drawGraph(allNodes, allLinks);
-                return;
-            }
-
-            let filteredNodes = allNodes.filter(d => d.teamName.trim() === selectedTeam);
-            let filteredNodeIDs = new Set(filteredNodes.map(d => d.id));
-
-            let filteredLinks = allLinks.filter(d => 
-                filteredNodeIDs.has(d.source) && filteredNodeIDs.has(d.target)
-            );
-
-            drawGraph(filteredNodes, filteredLinks);
         }
 
         function dragstarted(d) {
