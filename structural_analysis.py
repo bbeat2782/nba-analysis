@@ -12,16 +12,16 @@ file_path = "data/nba_player_interactions_2001_2025.csv"
 df = pd.read_csv(file_path)
 
 # NOTE Need to choose how we will handle this
-df = df[(df['Season'] == 2023) & (df['Event_Type'] == 'Shot_Made')]
-#df = df[df['Event_Type'] == 'Shot_Made']
+df = df[(df['Season'] == 2023) & (df['EVENTMSGTYPE'] == 1)]
+#df = df[df['EVENTMSGTYPE'] == 1]
 
 # Create directed graph
 G = nx.DiGraph()
 
 # Add weighted edges (Passer -> Scorer)
 for _, row in df.iterrows():
-    passer = row["Player2_ID"]
-    scorer = row["Player1_ID"]
+    passer = row["PLAYER2_ID"]
+    scorer = row["PLAYER1_ID"]
     if passer == 0:
         continue
 

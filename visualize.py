@@ -13,23 +13,23 @@ season = 2024
 
 df_season = df[df['Season'] == season]
 # Filter only assist interactions
-df_assists = df_season[df_season["Event_Type"] == "Shot_Made"].dropna(subset=["Player2_ID"])
-df_assists = df_assists[df_assists['Player2_ID'] != 0]
+df_assists = df_season[df_season["EVENTMSGTYPE"] == 1].dropna(subset=["PLAYER2_ID"])
+df_assists = df_assists[df_assists['PLAYER2_ID'] != 0]
 
 # Create a directed graph
 G = nx.DiGraph()
 
 # Add edges (Player2_ID = assister, Player1_ID = scorer)
 for _, row in df_assists.iterrows():
-    assister = row["Player2_ID"]
-    scorer = row["Player1_ID"]
+    assister = row["PLAYER2_ID"]
+    scorer = row["PLAYER1_ID"]
     if G.has_edge(assister, scorer):
         G[assister][scorer]["weight"] += 1
     else:
         G.add_edge(assister, scorer, weight=1)
 
 # Calculate node sizes and colors based on scoring frequency
-player_shots = df_assists["Player1_ID"].value_counts()
+player_shots = df_assists["PLAYER1_ID"].value_counts()
 node_sizes = {node: player_shots.get(node, 10) * 0.3 for node in G.nodes()}
 node_colors = {node: player_shots.get(node, 0) for node in G.nodes()}  # Shots made
 

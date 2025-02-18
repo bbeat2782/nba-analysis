@@ -14,14 +14,14 @@ This project constructs an evolving **NBA player interaction network** using eve
 ### 1. Project Goal / Hypothesis
 
 - **Hypothesis:** 
-  - The passing network structure can reveal key trends in NBA gameplay, including the evolution of playmaking roles, team chemistry, and long-term player impact.
+  - The passing network structure can reveal key trends in NBA gameplay, including the evolution of playmaking roles. We expect to see teams winning with a larger margin (or simply wins more) when they have a more interconnected passing network, where ball movement is distributed across multiple players rather than relying heavily on a single playmaker. This suggests that teams with higher average degree centrality, lower network centralization, and stronger team-wide passing efficiency are more likely to perform well, as they are less predictable and harder to defend against.
 - **Objectives:**
   - Analyze **how player interactions evolve** during and over multiple seasons.
   - Identify **key playmakers** based on their network influence.
   - Measure **team chemistry** and its relation to team performance.
-    - (TODO: how?)
+    - (team chemistry by centrality, assortativity, etc)
   - Compare **historical playstyles** by analyzing network structures across NBA eras.
-    - Can look into centrality or hubs and authorities
+    - Look into the networks of dominant teams from different seasons and compare how they differ (visually & numerically)
 
 ---
 
@@ -30,7 +30,6 @@ This project constructs an evolving **NBA player interaction network** using eve
 - **Source:** [NBA API](https://github.com/swar/nba_api)
 - **Nodes:** NBA players
 - **Edges:** Passes that led to scoring
-<!-- - **Temporal aspect:** Multi-season evolving network (layered by year) -->
 
 ---
 
@@ -100,29 +99,18 @@ This project constructs an evolving **NBA player interaction network** using eve
 
 ---
 
-### 6. Advanced Analysis - TODO: Need to discuss this
+### 6. Advanced Analysis
 
 #### 6.1 Temporal Network Dynamics
-- Track **network evolution** over time (e.g., player interactions shifting due to trades).
-- Compare **short-term vs. long-term impact of trades**.
-- Measure how **team chemistry scores** fluctuate across seasons.
-
-#### 6.2 Predictive Modeling (ML Approaches)
-- **Graph Neural Networks (GNNs)** for predicting:
-  - Player performance (impact on team success)
-  - Future passing network structures (link prediction)
-  
-- **Evaluation Metrics**:
-  - **Correlation with traditional stats** (e.g., Plus/Minus, PER)
-  - **Predictive accuracy** of future interactions
-
-#### 6.3 Chemistry Measurement
+- Compare how playstyles change over time, especially for teams that were dominant from different seasons.
 - Define **team chemistry score** based on:
   - Network clustering coefficient
   - Average interaction weights within a team
   - Consistency of high-degree interactions
-
-- Investigate **how chemistry correlates with team success** (e.g., playoff performance).
+  - Centrality
+- Investigate **how chemistry correlates with team success**
+  - How do they differ
+  - Plot on how those stats changed over time
 
 ---
 

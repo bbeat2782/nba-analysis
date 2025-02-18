@@ -1,0 +1,148 @@
+<!-- http://localhost:8000/scripts/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>NBA Player Passing Network</title>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .links line { stroke: #999; stroke-opacity: 0.6; }
+        .nodes circle { stroke: #fff; stroke-width: 1.5px; }
+        .tooltip {
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 5px;
+            font-size: 14px;
+            visibility: hidden;
+        }
+    </style>
+</head>
+<body>
+    <h2>NBA Player Passing Network</h2>
+    
+    <label for="team-search">Search by Team ID (float):</label>
+    <input type="text" id="team-search" placeholder="Enter team ID..." oninput="searchTeam()">
+    
+    <svg width="960" height="600"></svg>
+    
+    <script>
+        var svg = d3.select("svg"),
+            width = +svg.attr("width"),
+            height = +svg.attr("height");
+
+        var color = d3.scaleOrdinal(d3.schemeCategory10);
+        var simulation = d3.forceSimulation()
+            .force("link", d3.forceLink().id(d => d.id))
+            .force("charge", d3.forceManyBody())
+            .force("center", d3.forceCenter(width / 2, height / 2));
+
+        var allNodes = [], allLinks = [];
+
+        // Load JSON file from scripts folder
+        d3.json("graph_data.json", function(error, graph) {
+            if (error) {
+                console.error("Error loading JSON:", error);
+                return;
+            }
+
+            allNodes = graph.nodes;
+            allLinks = graph.links;
+            drawGraph(allNodes, allLinks); // Draw initial graph
+        });
+
+        function drawGraph(nodes, links) {
+            // Clear existing graph
+            svg.selectAll("*").remove();
+
+            // Create node map for quick lookup
+            let nodeMap = new Map(nodes.map(d => [d.id, d]));
+
+            // Convert string-based links into object references
+            let processedLinks = links
+                .map(d => ({
+                    source: nodeMap.get(d.source) || d.source,
+                    target: nodeMap.get(d.target) || d.target,
+                    value: d.value
+                }))
+                .filter(d => d.source && d.target); // Ensure both nodes exist
+
+            var link = svg.append("g")
+                .attr("class", "links")
+                .selectAll("line")
+                .data(processedLinks)
+                .enter().append("line")
+                .attr("stroke-width", d => Math.sqrt(d.value));
+
+            var node = svg.append("g")
+                .attr("class", "nodes")
+                .selectAll("circle")
+                .data(nodes)
+                .enter().append("circle")
+                .attr("r", 8)
+                .attr("fill", d => color(d.group))
+                .attr("class", d => `team-${d.group}`)
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            node.append("title")
+                .text(d => `${d.id} (Team ID: ${d.group})`);
+
+            simulation.nodes(nodes).on("tick", ticked);
+            simulation.force("link").links(processedLinks);
+            simulation.alpha(1).restart(); // Restart simulation for filtered data
+
+            function ticked() {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+            }
+        }
+
+        function searchTeam() {
+            let searchTerm = document.getElementById("team-search").value.trim();
+
+            if (searchTerm === "") {
+                drawGraph(allNodes, allLinks); // Reset to full graph when search is empty
+                return;
+            }
+
+            let filteredNodes = allNodes.filter(d => d.group.toString() === searchTerm);
+            let filteredNodeIDs = new Set(filteredNodes.map(d => d.id));
+
+            let filteredLinks = allLinks.filter(d => 
+                filteredNodeIDs.has(d.source) && filteredNodeIDs.has(d.target)
+            );
+
+            drawGraph(filteredNodes, filteredLinks);
+        }
+
+        function dragstarted(d) {
+            if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(d) {
+            d.fx = d3.event.x;
+            d.fy = d3.event.y;
+        }
+
+        function dragended(d) {
+            if (!d3.event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+    </script>
+</body>
+</html>
