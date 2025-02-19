@@ -172,31 +172,33 @@
                     .attr("class", d => `node-${d.originalId}`) // Assign node-specific class
                     .each(function(d) { d3.select(this).datum(d); })  // ✅ Ensure data is correctly bound
                     .on("mouseover", function(event) {
-                        let d = d3.select(this).datum();  // ✅ Correctly retrieve the node data
+                        let d = d3.select(this).datum();  
                         if (!d || !d.originalId) return;
 
-                        // console.log(`Hovered over node: ${d.playerName} (ID: ${d.originalId})`);
+                        // Reduce opacity of all links to de-emphasize unrelated ones
+                        d3.selectAll(".link").style("opacity", 0.1);
 
-                        // Reduce opacity of all edges (de-emphasize unrelated links)
-                        d3.selectAll(".link")
-                            .attr("opacity", 0.1);
+                        // Highlight outgoing links in blue
+                        d3.selectAll(`.link-source-${d.originalId}`)
+                            .style("stroke", "blue")
+                            .style("opacity", 1);
 
-                        // Highlight only the connected edges (keep thickness unchanged)
-                        d3.selectAll(`.link-source-${d.originalId}, .link-target-${d.originalId}`)
-                            .attr("stroke", "red")
-                            .attr("opacity", 1);
+                        // Highlight incoming links in red
+                        d3.selectAll(`.link-target-${d.originalId}`)
+                            .style("stroke", "red")
+                            .style("opacity", 1);
                     })
                     .on("mouseout", function(event) {
-                        let d = d3.select(this).datum();  // ✅ Retrieve data again for mouseout
+                        let d = d3.select(this).datum();
                         if (!d || !d.originalId) return;
 
-                        // console.log(`Mouse left node: ${d.playerName} (ID: ${d.originalId})`);
-
-                        // Restore all edges to default appearance (thickness unchanged)
+                        // Restore all edges to default appearance
                         d3.selectAll(".link")
-                            .attr("stroke", "#555")
-                            .attr("opacity", 0.7);
-                    });
+                            .style("stroke", "#555")
+                            .style("opacity", 0.7);
+                    })
+
+
 
 
 
