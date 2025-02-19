@@ -1,225 +1,297 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>NBA Player Passing Network</title>
-    <script src="https://d3js.org/d3.v4.min.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .links line { stroke: #999; stroke-opacity: 0.6; }
-        .nodes circle { stroke: #fff; stroke-width: 1.5px; }
-        .tooltip {
-            position: absolute;
-            background: white;
-            border: 1px solid #ccc;
-            padding: 5px;
-            font-size: 14px;
-            visibility: hidden;
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>NBA Player Passing Network Comparison</title>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .graph-container {
+      display: inline-block;
+      vertical-align: top;
+      margin-right: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+    }
+    .links line { stroke: #999; stroke-opacity: 0.6; }
+    .nodes circle { stroke: #fff; stroke-width: 1.5px; }
+    .tooltip {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 5px;
+      font-size: 14px;
+      visibility: hidden;
+    }
+  </style>
 </head>
 <body>
-    <p><a href="bipartite.html" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">View Bipartite Graph</a></p>
+  <p>
+    <a href="bipartite.html" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+      View Bipartite Graph
+    </a>
+  </p>
 
-    <h2>NBA Player Passing Network</h2>
+  <h2>NBA Player Passing Network Comparison</h2>
 
-    <label for="season-select">Select Season:</label>
-    <select id="season-select" onchange="updateGraph()">
-        <option value="">-- Select a Season --</option>
+  <!-- Graph A container -->
+  <div class="graph-container" id="graphA">
+    <h3>Graph A</h3>
+    <label for="season-select-A">Select Season:</label>
+    <select id="season-select-A" onchange="updateGraph('A')">
+      <option value="">-- Select a Season --</option>
     </select>
-
-    <label for="team-select">Select Team:</label>
-    <select id="team-select" onchange="updateGraph()">
-        <option value="">-- Select a Team --</option>
+    <br>
+    <label for="team-select-A">Select Team:</label>
+    <select id="team-select-A" onchange="updateGraph('A')">
+      <option value="">-- Select a Team --</option>
     </select>
-
-    <label for="edge-type">Edge Type:</label>
-    <select id="edge-type" onchange="updateGraph()">
-        <option value="in-degree" selected>In-Degree</option>
-        <option value="out-degree">Out-Degree</option>
+    <br>
+    <label for="edge-type-A">Edge Type:</label>
+    <select id="edge-type-A" onchange="updateGraph('A')">
+      <option value="in-degree" selected>In-Degree</option>
+      <option value="out-degree">Out-Degree</option>
     </select>
+    <br>
+    <svg id="svg-A" width="700" height="600"></svg>
+  </div>
 
-    <svg width="1500" height="1000"></svg>
-    
-    <script>
-        var svg = d3.select("svg"),
-            width = +svg.attr("width"),
-            height = +svg.attr("height");
+  <!-- Graph B container -->
+  <div class="graph-container" id="graphB">
+    <h3>Graph B</h3>
+    <label for="season-select-B">Select Season:</label>
+    <select id="season-select-B" onchange="updateGraph('B')">
+      <option value="">-- Select a Season --</option>
+    </select>
+    <br>
+    <label for="team-select-B">Select Team:</label>
+    <select id="team-select-B" onchange="updateGraph('B')">
+      <option value="">-- Select a Team --</option>
+    </select>
+    <br>
+    <label for="edge-type-B">Edge Type:</label>
+    <select id="edge-type-B" onchange="updateGraph('B')">
+      <option value="in-degree" selected>In-Degree</option>
+      <option value="out-degree">Out-Degree</option>
+    </select>
+    <br>
+    <svg id="svg-B" width="700" height="600"></svg>
+  </div>
 
-        var color = d3.scaleOrdinal(d3.schemeCategory10);
-        var simulation = d3.forceSimulation()
-            .force("link", d3.forceLink().id(d => d.id).distance(80))
-            .force("charge", d3.forceManyBody().strength(-500))
-            .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("collide", d3.forceCollide(10))
-            .force("x", d3.forceX(width / 2).strength(0.1))
-            .force("y", d3.forceY(height / 2).strength(0.1));
+  <script>
+    // Global variables to hold all data
+    var allNodes = [], allLinks = [];
+    var teamNames = new Set(), seasonYears = new Set();
+    var color = d3.scaleOrdinal(d3.schemeCategory10);
 
-        var allNodes = [], allLinks = [], teamNames = new Set(), seasonYears = new Set();
+    // Create separate simulations for Graph A and Graph B
+    var simulations = {
+      'A': d3.forceSimulation()
+             .force("link", d3.forceLink().id(d => d.id).distance(80))
+             .force("charge", d3.forceManyBody().strength(-500))
+             .force("center", d3.forceCenter(700 / 2, 600 / 2))
+             .force("collide", d3.forceCollide(10))
+             .force("x", d3.forceX(700 / 2).strength(0.1))
+             .force("y", d3.forceY(600 / 2).strength(0.1)),
+      'B': d3.forceSimulation()
+             .force("link", d3.forceLink().id(d => d.id).distance(80))
+             .force("charge", d3.forceManyBody().strength(-500))
+             .force("center", d3.forceCenter(700 / 2, 600 / 2))
+             .force("collide", d3.forceCollide(10))
+             .force("x", d3.forceX(700 / 2).strength(0.1))
+             .force("y", d3.forceY(600 / 2).strength(0.1))
+    };
 
-        d3.json("scripts/graph_data.json", function(error, graph) {
-            if (error) {
-                console.error("Error loading JSON:", error);
-                return;
-            }
+    // Load the data (assumed to be in scripts/graph_data.json)
+    d3.json("scripts/graph_data.json", function(error, graph) {
+      if (error) {
+        console.error("Error loading JSON:", error);
+        return;
+      }
 
-            allNodes = graph.nodes;
-            allLinks = graph.links;
+      allNodes = graph.nodes;
+      allLinks = graph.links;
 
-            graph.nodes.forEach(node => {
-                teamNames.add(node.teamName.trim());
-                seasonYears.add(node.season);
-            });
+      // Populate global team and season sets
+      graph.nodes.forEach(node => {
+        teamNames.add(node.teamName.trim());
+        seasonYears.add(node.season);
+      });
 
-            // Populate season dropdown
-            let seasonDropdown = d3.select("#season-select");
-            let sortedSeasons = Array.from(seasonYears).map(Number).sort((a, b) => a - b);
+      // Prepare season options (sorted numerically) for both graphs
+      let sortedSeasons = Array.from(seasonYears).map(Number).sort((a, b) => a - b);
+      ['A', 'B'].forEach(function(graphLabel) {
+        let seasonDropdown = d3.select("#season-select-" + graphLabel);
+        sortedSeasons.forEach(season => {
+          seasonDropdown.append("option")
+            .attr("value", season)
+            .text(season)
+            .property("selected", season === 2024);
+        });
+      });
 
-            sortedSeasons.forEach(season => {
-                seasonDropdown.append("option")
-                    .attr("value", season)
-                    .text(season)
-                    .property("selected", season === 2024);
-            });
+      // Populate team dropdown (sorted alphabetically) for both graphs
+      let sortedTeams = Array.from(teamNames).sort();
+      ['A', 'B'].forEach(function(graphLabel) {
+      let teamDropdown = d3.select("#team-select-" + graphLabel);
+      sortedTeams.forEach(team => {
+          let option = teamDropdown.append("option")
+          .attr("value", team)
+          .text(team);
+        
+          // Set Lakers as default for Graph A, Clippers as default for Graph B
+          if ((graphLabel === 'A' && team === "Lakers") || (graphLabel === 'B' && team === "Clippers")) {
+          option.property("selected", true);
+          }
+      });
+      });
 
-            // Sort teams alphabetically and populate dropdown
-            let sortedTeams = Array.from(teamNames).sort();
-            let teamDropdown = d3.select("#team-select");
 
-            sortedTeams.forEach(team => {
-                let option = teamDropdown.append("option")
-                    .attr("value", team)
-                    .text(team);
+      // Initialize both graphs with default filters
+      updateGraph('A');
+      updateGraph('B');
+    });
 
-                if (team === "Lakers") {
-                    option.property("selected", true);
-                }
-            });
+    // Update the graph for a given container (graphLabel is either 'A' or 'B')
+    function updateGraph(graphLabel) {
+      let seasonSelect = document.getElementById("season-select-" + graphLabel);
+      let teamSelect = document.getElementById("team-select-" + graphLabel);
+      let edgeTypeSelect = document.getElementById("edge-type-" + graphLabel);
+      let svg = d3.select("#svg-" + graphLabel);
+      let width = +svg.attr("width");
+      let height = +svg.attr("height");
 
-            // Initialize graph with default filters
-            updateGraph();
+      let selectedSeason = seasonSelect.value;
+      let selectedTeam = teamSelect.value.trim();
+      let edgeType = edgeTypeSelect.value;
+
+      // Filter nodes based on season and team
+      let filteredNodes = allNodes.filter(d =>
+        (selectedSeason === "" || d.season == selectedSeason) &&
+        (selectedTeam === "" || d.teamName.trim() === selectedTeam)
+      );
+
+      // Filter links: only keep links where both endpoints are in filteredNodes
+      let filteredNodeIDs = new Set(filteredNodes.map(d => d.id));
+      let filteredLinks = allLinks.filter(d =>
+        filteredNodeIDs.has(d.source) &&
+        filteredNodeIDs.has(d.target) &&
+        (selectedSeason === "" || d.season == selectedSeason)
+      );
+
+      // Compute node degree (in or out) for filtered nodes
+      let degreeMap = new Map();
+      filteredNodes.forEach(d => degreeMap.set(d.id, 0));
+      filteredLinks.forEach(link => {
+        if (edgeType === "in-degree") {
+          degreeMap.set(link.target, (degreeMap.get(link.target) || 0) + link.value);
+        } else {
+          degreeMap.set(link.source, (degreeMap.get(link.source) || 0) + link.value);
+        }
+      });
+      filteredNodes.forEach(node => node.degree = degreeMap.get(node.id) || 0);
+
+      drawGraph(graphLabel, filteredNodes, filteredLinks, svg, width, height);
+    }
+
+    // Draw graph inside the specified svg container with zoom functionality
+    function drawGraph(graphLabel, nodes, links, svg, width, height) {
+      // Clear any existing content.
+      svg.selectAll("*").remove();
+
+      // Append a group element to serve as the zoomable container.
+      var container = svg.append("g");
+
+      // Add zoom behavior to the SVG.
+      svg.call(d3.zoom().on("zoom", function() {
+        container.attr("transform", d3.event.transform);
+      }));
+
+      let simulation = simulations[graphLabel];
+
+      // Map node IDs to node objects for linking.
+      let nodeMap = new Map(nodes.map(d => [d.id, d]));
+
+      let processedLinks = links.map(d => ({
+        source: nodeMap.get(d.source) || d.source,
+        target: nodeMap.get(d.target) || d.target,
+        value: d.value
+      })).filter(d => d.source && d.target);
+
+      // Append links.
+      var link = container.append("g")
+        .attr("class", "links")
+        .selectAll("line")
+        .data(processedLinks)
+        .enter().append("line")
+        .attr("stroke-width", d => Math.sqrt(d.value) + 1);
+
+      // Append nodes.
+      var node = container.append("g")
+        .attr("class", "nodes")
+        .selectAll("circle")
+        .data(nodes)
+        .enter().append("circle")
+        .attr("r", d => Math.sqrt(d.degree) + 5)
+        .attr("fill", d => color(d.teamName.trim()))
+        .call(d3.drag()
+          .on("start", d => dragstarted(d, simulation))
+          .on("drag", d => dragged(d, simulation))
+          .on("end", d => dragended(d, simulation))
+        );
+
+      // Tooltip for node information.
+      var tooltip = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("visibility", "hidden");
+
+      node.on("mouseover", function(event) {
+          let d = d3.select(this).datum();
+          tooltip.style("visibility", "visible")
+            .html("<b>" + (d.playerName || "Unknown") + "</b><br>Team: " +
+                   (d.teamName || "N/A") + "<br>Season: " + d.season +
+                   "<br>" + document.getElementById("edge-type-" + graphLabel).value +
+                   ": " + (d.degree || 0))
+            .style("top", (event.pageY + 10) + "px")
+            .style("left", (event.pageX + 10) + "px");
+        })
+        .on("mouseout", function() {
+          tooltip.style("visibility", "hidden");
         });
 
-        function updateGraph() {
-            let selectedSeason = document.getElementById("season-select").value;
-            let selectedTeam = document.getElementById("team-select").value.trim();
-            let edgeType = document.getElementById("edge-type").value; // "in-degree" or "out-degree"
+      simulation.nodes(nodes).on("tick", ticked);
+      simulation.force("link").links(processedLinks);
+      simulation.alpha(1).restart();
 
-            let filteredNodes = allNodes.filter(d =>
-                (selectedSeason === "" || d.season == selectedSeason) &&
-                (selectedTeam === "" || d.teamName.trim() === selectedTeam)
-            );
+      function ticked() {
+        link
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+        node
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+      }
+    }
 
-            // Compute in-degree or out-degree dynamically
-            let degreeMap = new Map();
-            filteredNodes.forEach(d => degreeMap.set(d.id, 0));
+    // Drag event functions.
+    function dragstarted(d, simulation) {
+      if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    }
 
-            let filteredNodeIDs = new Set(filteredNodes.map(d => d.id));
-            let filteredLinks = allLinks.filter(d =>
-                filteredNodeIDs.has(d.source) && filteredNodeIDs.has(d.target) &&
-                (selectedSeason === "" || d.season == selectedSeason)
-            );
+    function dragged(d, simulation) {
+      d.fx = d3.event.x;
+      d.fy = d3.event.y;
+    }
 
-            // Calculate selected degree type
-            filteredLinks.forEach(link => {
-                if (edgeType === "in-degree") {
-                    degreeMap.set(link.target, (degreeMap.get(link.target) || 0) + link.value);
-                } else {
-                    degreeMap.set(link.source, (degreeMap.get(link.source) || 0) + link.value);
-                }
-            });
-
-            // Update node degree
-            filteredNodes.forEach(node => {
-                node.degree = degreeMap.get(node.id) || 0;
-            });
-
-            drawGraph(filteredNodes, filteredLinks);
-        }
-
-        function drawGraph(nodes, links) {
-            svg.selectAll("*").remove();
-
-            let nodeMap = new Map(nodes.map(d => [d.id, d]));
-
-            let processedLinks = links
-                .map(d => ({
-                    source: nodeMap.get(d.source) || d.source,
-                    target: nodeMap.get(d.target) || d.target,
-                    value: d.value
-                }))
-                .filter(d => d.source && d.target);
-
-            var link = svg.append("g")
-                .attr("class", "links")
-                .selectAll("line")
-                .data(processedLinks)
-                .enter().append("line")
-                .attr("stroke-width", d => Math.sqrt(d.value) + 1);
-
-            var node = svg.append("g")
-                .attr("class", "nodes")
-                .selectAll("circle")
-                .data(nodes)
-                .enter().append("circle")
-                .each(function(d) {  
-                    d3.select(this).datum(d);
-                })
-                .attr("r", d => Math.sqrt(d.degree) + 5)  // Node size changes dynamically
-                .attr("fill", d => color(d.teamName.trim()))
-                .attr("class", d => `team-${d.teamName.trim().replace(/\s/g, '-')}`)
-                .call(d3.drag()
-                    .on("start", dragstarted)
-                    .on("drag", dragged)
-                    .on("end", dragended));
-
-            var tooltip = d3.select("body").append("div")
-                .attr("class", "tooltip")
-                .style("visibility", "hidden");
-
-            node.on("mouseover", function(event) {
-                let d = d3.select(this).datum();
-                tooltip.style("visibility", "visible")
-                    .html(`<b>${d.playerName || "Unknown"}</b><br>Team: ${d.teamName || "N/A"}<br>Season: ${d.season}<br>${document.getElementById("edge-type").value}: ${d.degree || 0}`)
-                    .style("top", `${event.pageY + 10}px`)
-                    .style("left", `${event.pageX + 10}px`);
-            });
-
-            simulation.nodes(nodes).on("tick", ticked);
-            simulation.force("link").links(processedLinks);
-            simulation.alpha(1).restart();
-
-            function ticked() {
-                link
-                    .attr("x1", d => d.source.x)
-                    .attr("y1", d => d.source.y)
-                    .attr("x2", d => d.target.x)
-                    .attr("y2", d => d.target.y);
-
-                node
-                    .attr("cx", d => d.x)
-                    .attr("cy", d => d.y);
-            }
-        }
-
-        function dragstarted(d) {
-            if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-        }
-
-        function dragged(d) {
-            d.fx = d3.event.x;
-            d.fy = d3.event.y;
-        }
-
-        function dragended(d) {
-            if (!d3.event.active) simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
-        }
-    </script>
+    function dragended(d, simulation) {
+      if (!d3.event.active) simulation.alphaTarget(0);
+      d.fx = null;
+      d.fy = null;
+    }
+  </script>
 </body>
 </html>
-
-
