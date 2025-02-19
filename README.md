@@ -126,6 +126,8 @@ This project constructs an evolving **NBA player interaction network** using eve
 - **Historical Playstyle Comparisons**:
   - Visualizing **NBA era shifts** (e.g., transition from ISO-heavy to pass-heavy modern basketball).
 
+<!-- Animation? -->
+
 ---
 
 ### 8. Outcome & Findings
