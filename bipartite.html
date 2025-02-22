@@ -1,225 +1,343 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>NBA Player Passing Network (Bipartite Graph)</title>
-    <script src="https://d3js.org/d3.v4.min.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .links line { stroke: #999; stroke-opacity: 0.6; }
-        .nodes circle { stroke: #fff; stroke-width: 1.5px; }
-        .tooltip {
-            position: absolute;
-            background: white;
-            border: 1px solid #ccc;
-            padding: 5px;
-            font-size: 14px;
-            visibility: hidden;
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>NBA Player Passing Network (Bipartite Graph)</title>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .links line { stroke: #999; stroke-opacity: 0.6; }
+    .nodes circle { stroke: #fff; stroke-width: 1.5px; }
+    .tooltip {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 5px;
+      font-size: 14px;
+      visibility: hidden;
+    }
+    /* Optional: Style for controls */
+    .controls {
+      margin-bottom: 20px;
+    }
+    .controls label, .controls select {
+      margin-right: 10px;
+    }
+  </style>
 </head>
 <body>
-    <p><a href="index.html" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">View Original Graph</a></p>
-    <h2>NBA Player Passing Network (Bipartite Graph)</h2>
+  <p>
+    <a href="index.html" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+      View Original Graph
+    </a>
+  </p>
+  
+  <h2>NBA Player Passing Network (Bipartite Graph)</h2>
 
+  <!-- Controls are placed above the SVG -->
+  <div class="controls">
     <label for="season-select">Select Season:</label>
     <select id="season-select" onchange="updateGraph()">
-        <option value="">-- Select a Season --</option>
+      <option value="">-- Select a Season --</option>
     </select>
 
     <label for="team-select">Select Team:</label>
     <select id="team-select" onchange="updateGraph()">
-        <option value="">-- Select a Team --</option>
+      <option value="">-- Select a Team --</option>
     </select>
+  </div>
 
-    <svg width="1500" height="1000">
-        <defs>
+  <!-- Place the SVG directly in the body so that the entire page scrolls -->
+  <svg width="1500" height="3000">
+    <defs>
+      <marker id="arrow" viewBox="0 -5 10 10" refX="15" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,-5L10,0L0,5" fill="#999"></path>
+      </marker>
+    </defs>
+  </svg>
+
+  <script>
+    var svg = d3.select("svg"),
+        width = +svg.attr("width"),
+        height = +svg.attr("height");
+
+    var color = d3.scaleOrdinal(d3.schemeCategory10);
+    var allNodes = [], allLinks = [], teamNames = new Set(), seasonYears = new Set();
+
+    // Global locked node variable
+    var lockedNode = null;
+
+    // Attach a background click handler to clear locked selection
+    svg.on("click", function() {
+      if (d3.event.target.tagName === "svg") {
+        lockedNode = null;
+        d3.selectAll(".link")
+          .style("stroke", "#555")
+          .style("opacity", 0.7);
+        d3.selectAll(".nodes circle").style("opacity", 1);
+        d3.selectAll(".labels text").style("opacity", 1);
+      }
+    });
+
+    d3.json("scripts/graph_data.json", function(error, graph) {
+      if (error) {
+        console.error("Error loading JSON:", error);
+        return;
+      }
+
+      allNodes = graph.nodes;
+      allLinks = graph.links;
+
+      graph.nodes.forEach(node => {
+        teamNames.add(node.teamName.trim());
+        seasonYears.add(node.season);
+      });
+
+      // Populate season dropdown
+      let seasonDropdown = d3.select("#season-select");
+      let sortedSeasons = Array.from(seasonYears).map(Number).sort((a, b) => a - b);
+      sortedSeasons.forEach(season => {
+        seasonDropdown.append("option")
+          .attr("value", season)
+          .text(season)
+          .property("selected", season === 2024);
+      });
+
+      // Populate team dropdown
+      let sortedTeams = Array.from(teamNames).sort();
+      let teamDropdown = d3.select("#team-select");
+      sortedTeams.forEach(team => {
+        let option = teamDropdown.append("option")
+          .attr("value", team)
+          .text(team);
+        if (team === "Lakers") {
+          option.property("selected", true);
+        }
+      });
+
+      updateGraph();
+    });
+
+    function updateGraph() {
+      let selectedSeason = document.getElementById("season-select").value;
+      let selectedTeam = document.getElementById("team-select").value.trim();
+
+      let filteredNodes = allNodes.filter(d =>
+        (selectedSeason === "" || d.season == selectedSeason) &&
+        (selectedTeam === "" || d.teamName.trim() === selectedTeam)
+      );
+
+      let filteredLinks = allLinks.filter(d =>
+        filteredNodes.some(node => node.id === d.source) &&
+        filteredNodes.some(node => node.id === d.target) &&
+        (selectedSeason === "" || d.season == selectedSeason)
+      );
+
+      drawBipartiteGraph(filteredNodes, filteredLinks);
+    }
+
+    function drawBipartiteGraph(nodes, links) {
+        svg.selectAll("*").remove();
+
+        // Re-add defs since they were removed.
+        svg.append("defs").html(`
             <marker id="arrow" viewBox="0 -5 10 10" refX="15" refY="0" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M0,-5L10,0L0,5" fill="#999"></path>
+            <path d="M0,-5L10,0L0,5" fill="#999"></path>
             </marker>
-        </defs>
-    </svg>
+        `);
 
-    <script>
-        var svg = d3.select("svg"),
-            width = +svg.attr("width"),
-            height = +svg.attr("height");
+        // Create sets of unique player IDs
+        let uniquePlayers = new Set(nodes.map(d => d.id));
 
-        var color = d3.scaleOrdinal(d3.schemeCategory10);
-        var allNodes = [], allLinks = [], teamNames = new Set(), seasonYears = new Set();
+        // Create left (passer/assist) and right (receiver/score) nodes
+        let leftNodes = Array.from(uniquePlayers).map(id => ({
+            id: `${id}-passer`,
+            originalId: id,
+            playerName: nodes.find(n => n.id === id)?.playerName || "Unknown",
+            teamName: nodes.find(n => n.id === id)?.teamName || "N/A"
+        }));
+        let rightNodes = Array.from(uniquePlayers).map(id => ({
+            id: `${id}-receiver`,
+            originalId: id,
+            playerName: nodes.find(n => n.id === id)?.playerName || "Unknown",
+            teamName: nodes.find(n => n.id === id)?.teamName || "N/A"
+        }));
 
-        d3.json("scripts/graph_data.json", function(error, graph) {
-            if (error) {
-                console.error("Error loading JSON:", error);
-                return;
-            }
+        // Filter links to those connecting the filtered nodes
+        let nodeMapPre = new Map([...leftNodes, ...rightNodes].map(d => [d.originalId, d]));
+        let processedLinks = links.map(d => ({
+            source: { originalId: d.source },
+            target: { originalId: d.target },
+            value: d.value,
+            season: d.season
+        })).filter(d => 
+            nodeMapPre.has(d.source.originalId) && nodeMapPre.has(d.target.originalId)
+        );
 
-            allNodes = graph.nodes;
-            allLinks = graph.links;
-
-            graph.nodes.forEach(node => {
-                teamNames.add(node.teamName.trim());
-                seasonYears.add(node.season);
-            });
-
-            // Populate season dropdown
-            let seasonDropdown = d3.select("#season-select");
-            let sortedSeasons = Array.from(seasonYears).map(Number).sort((a, b) => a - b);
-            sortedSeasons.forEach(season => {
-                seasonDropdown.append("option")
-                    .attr("value", season)
-                    .text(season)
-                    .property("selected", season === 2024);
-            });
-
-            let sortedTeams = Array.from(teamNames).sort();
-            let teamDropdown = d3.select("#team-select");
-            sortedTeams.forEach(team => {
-                let option = teamDropdown.append("option")
-                    .attr("value", team)
-                    .text(team);
-                if (team === "Lakers") {
-                    option.property("selected", true);
-                }
-            });
-
-            updateGraph();
+        // Compute outgoing for left nodes & incoming for right nodes
+        leftNodes.forEach(d => {
+            d.outgoing = d3.sum(processedLinks.filter(link => link.source.originalId === d.originalId), link => link.value);
+        });
+        rightNodes.forEach(d => {
+            d.incoming = d3.sum(processedLinks.filter(link => link.target.originalId === d.originalId), link => link.value);
         });
 
-        function updateGraph() {
-            let selectedSeason = document.getElementById("season-select").value;
-            let selectedTeam = document.getElementById("team-select").value.trim();
+        // Create scales for node radii
+        var leftMax = d3.max(leftNodes, d => d.outgoing) || 1;
+        var rightMax = d3.max(rightNodes, d => d.incoming) || 1;
+        var leftRadiusScale = d3.scaleSqrt().domain([0, leftMax]).range([5, 20]);
+        var rightRadiusScale = d3.scaleSqrt().domain([0, rightMax]).range([5, 20]);
 
-            let filteredNodes = allNodes.filter(d =>
-                (selectedSeason === "" || d.season == selectedSeason) &&
-                (selectedTeam === "" || d.teamName.trim() === selectedTeam)
-            );
+        // Assign radii based on computed sums
+        leftNodes.forEach(d => { d.r = leftRadiusScale(d.outgoing); });
+        rightNodes.forEach(d => { d.r = rightRadiusScale(d.incoming); });
 
-            let filteredLinks = allLinks.filter(d =>
-                filteredNodes.some(node => node.id === d.source) &&
-                filteredNodes.some(node => node.id === d.target) &&
-                (selectedSeason === "" || d.season == selectedSeason)
-            );
+        // --- Spacing Code: Start at the top ---
+        // Define a top margin for header text
+        const topMargin = 40;
+        const leftPadding = 10;
+        const rightPadding = 10;
 
-            drawBipartiteGraph(filteredNodes, filteredLinks);
+        // Adjust starting Y positions to include the top margin
+        leftNodes.sort((a, b) => a.playerName.localeCompare(b.playerName));
+        rightNodes.sort((a, b) => a.playerName.localeCompare(b.playerName));
+
+        let currentYLeft = topMargin + leftPadding;
+        leftNodes.forEach(d => {
+        d.x = width * 0.25;
+        d.y = currentYLeft + d.r;
+        currentYLeft += 2 * d.r + leftPadding;
+        });
+
+        let currentYRight = topMargin + rightPadding;
+        rightNodes.forEach(d => {
+        d.x = width * 0.75;
+        d.y = currentYRight + d.r;
+        currentYRight += 2 * d.r + rightPadding;
+        });
+
+        // Add header labels above the first node in each column
+        if (leftNodes.length > 0) {
+        svg.append("text")
+            .attr("x", leftNodes[0].x)
+            .attr("y", leftNodes[0].y - leftNodes[0].r - 5) // now safely within the SVG
+            .attr("text-anchor", "middle")
+            .text("Assists")
+            .style("font-size", "16px")
+            .style("font-weight", "bold");
+        }
+        if (rightNodes.length > 0) {
+        svg.append("text")
+            .attr("x", rightNodes[0].x)
+            .attr("y", rightNodes[0].y - rightNodes[0].r - 5)
+            .attr("text-anchor", "middle")
+            .text("Scores")
+            .style("font-size", "16px")
+            .style("font-weight", "bold");
         }
 
-        function drawBipartiteGraph(nodes, links) {
-            svg.selectAll("*").remove();
+        // Combine nodes and rebuild node map for link drawing
+        let allPositionedNodes = [...leftNodes, ...rightNodes];
+        let nodeMap = new Map(allPositionedNodes.map(d => [d.id, d]));
 
-            let uniquePlayers = new Set(nodes.map(d => d.id));
+        // Map links to use positioned nodes
+        let positionedLinks = processedLinks.map(d => ({
+            source: nodeMap.get(`${d.source.originalId}-passer`),
+            target: nodeMap.get(`${d.target.originalId}-receiver`),
+            value: d.value
+        })).filter(d => d.source && d.target);
 
-            let leftNodes = Array.from(uniquePlayers).map(id => ({
-                id: `${id}-passer`,
-                originalId: id,
-                playerName: nodes.find(n => n.id === id)?.playerName || "Unknown",
-                teamName: nodes.find(n => n.id === id)?.teamName || "N/A"
-            }));
+        // Draw links
+        svg.append("g")
+            .attr("class", "links")
+            .selectAll("line")
+            .data(positionedLinks)
+            .enter().append("line")
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y)
+            .attr("stroke-width", d => Math.sqrt(d.value) * 2)
+            .attr("stroke", "#555")
+            .attr("opacity", 0.7)
+            .attr("class", d => `link link-source-${d.source.originalId} link-target-${d.target.originalId}`);
 
-            let rightNodes = Array.from(uniquePlayers).map(id => ({
-                id: `${id}-receiver`,
-                originalId: id,
-                playerName: nodes.find(n => n.id === id)?.playerName || "Unknown",
-                teamName: nodes.find(n => n.id === id)?.teamName || "N/A"
-            }));
+        // Draw nodes
+        svg.append("g")
+            .attr("class", "nodes")
+            .selectAll("circle")
+            .data(allPositionedNodes)
+            .enter().append("circle")
+            .attr("cx", d => d.x)
+            .attr("cy", d => d.y)
+            .attr("r", d => d.r)
+            .attr("fill", d => color(d.teamName.trim()))
+            .attr("class", d => "node-" + d.originalId)
+            .each(function(d) { d3.select(this).datum(d); })
+            .on("mouseover", function(d) {
+                if (lockedNode && lockedNode.originalId !== d.originalId) return;
+                var datum = d3.select(this).datum();
+                if (!datum || !datum.originalId) return;
 
-            let leftSpacing = height / (leftNodes.length + 1);
-            let rightSpacing = height / (rightNodes.length + 1);
+                d3.selectAll(".link").style("opacity", 0.1);
+                d3.selectAll(".link-source-" + datum.originalId)
+                .style("stroke", "blue")
+                .style("opacity", 1);
+                d3.selectAll(".link-target-" + datum.originalId)
+                .style("stroke", "red")
+                .style("opacity", 1);
 
-            leftNodes.forEach((d, i) => {
-                d.x = width * 0.25;
-                d.y = (i + 1) * leftSpacing;
+                var connectedNodes = new Set();
+                d3.selectAll(".nodes circle").each(function(nodeData) {
+                if (nodeData.originalId === datum.originalId) {
+                    connectedNodes.add(nodeData.id);
+                }
+                });
+                d3.selectAll(".link-source-" + datum.originalId).each(function(linkData) {
+                if (linkData.target && linkData.target.id) {
+                    connectedNodes.add(linkData.target.id);
+                }
+                });
+                d3.selectAll(".link-target-" + datum.originalId).each(function(linkData) {
+                if (linkData.source && linkData.source.id) {
+                    connectedNodes.add(linkData.source.id);
+                }
+                });
+                d3.selectAll(".nodes circle").style("opacity", function(nodeData) {
+                return connectedNodes.has(nodeData.id) ? 1 : 0.3;
+                });
+                d3.selectAll(".labels text").style("opacity", function(labelData) {
+                return connectedNodes.has(labelData.id) ? 1 : 0.3;
+                });
+            })
+            .on("mouseout", function(d) {
+                if (lockedNode) return;
+                d3.selectAll(".link")
+                .style("stroke", "#555")
+                .style("opacity", 0.7);
+                d3.selectAll(".nodes circle").style("opacity", 1);
+                d3.selectAll(".labels text").style("opacity", 1);
+            })
+            .on("click", function(d) {
+                d3.event.stopPropagation();
+                var datum = d3.select(this).datum();
+                if (!datum || !datum.originalId) return;
+                lockedNode = datum;
             });
 
-            rightNodes.forEach((d, i) => {
-                d.x = width * 0.75;
-                d.y = (i + 1) * rightSpacing;
-            });
-
-            let allPositionedNodes = [...leftNodes, ...rightNodes];
-
-            let nodeMap = new Map(allPositionedNodes.map(d => [d.id, d]));
-
-            let processedLinks = links.map(d => ({
-                source: nodeMap.get(`${d.source}-passer`),
-                target: nodeMap.get(`${d.target}-receiver`),
-                value: d.value
-            })).filter(d => d.source && d.target);
-
-            var link = svg.append("g")
-                .attr("class", "links")
-                .selectAll("line")
-                .data(processedLinks)
-                .enter().append("line")
-                .attr("x1", d => d.source.x)
-                .attr("y1", d => d.source.y)
-                .attr("x2", d => d.target.x)
-                .attr("y2", d => d.target.y)
-                .attr("stroke-width", d => Math.sqrt(d.value) * 2)
-                .attr("stroke", "#555")
-                .attr("opacity", 0.7)
-                .attr("class", d => `link link-source-${d.source.originalId} link-target-${d.target.originalId}`); // Assign multiple classes
-
-                var node = svg.append("g")
-                    .attr("class", "nodes")
-                    .selectAll("circle")
-                    .data(allPositionedNodes)
-                    .enter().append("circle")
-                    .attr("cx", d => d.x)
-                    .attr("cy", d => d.y)
-                    .attr("r", 10)
-                    .attr("fill", d => color(d.teamName.trim()))
-                    .attr("class", d => `node-${d.originalId}`) // Assign node-specific class
-                    .each(function(d) { d3.select(this).datum(d); })  // ✅ Ensure data is correctly bound
-                    .on("mouseover", function(event) {
-                        let d = d3.select(this).datum();  
-                        if (!d || !d.originalId) return;
-
-                        // Reduce opacity of all links to de-emphasize unrelated ones
-                        d3.selectAll(".link").style("opacity", 0.1);
-
-                        // Highlight outgoing links in blue
-                        d3.selectAll(`.link-source-${d.originalId}`)
-                            .style("stroke", "blue")
-                            .style("opacity", 1);
-
-                        // Highlight incoming links in red
-                        d3.selectAll(`.link-target-${d.originalId}`)
-                            .style("stroke", "red")
-                            .style("opacity", 1);
-                    })
-                    .on("mouseout", function(event) {
-                        let d = d3.select(this).datum();
-                        if (!d || !d.originalId) return;
-
-                        // Restore all edges to default appearance
-                        d3.selectAll(".link")
-                            .style("stroke", "#555")
-                            .style("opacity", 0.7);
-                    })
-
-
-
-
-
-
-
-            svg.append("g")
-                .attr("class", "labels")
-                .selectAll("text")
-                .data(allPositionedNodes)
-                .enter().append("text")
-                .attr("x", d => d.x + (d.id.includes("passer") ? -15 : 15))
-                .attr("y", d => d.y + 5)
-                .attr("text-anchor", d => d.id.includes("passer") ? "end" : "start")
-                .text(d => d.playerName || "Unknown")
-                .style("font-size", "12px");
+        // Draw labels for nodes
+        svg.append("g")
+            .attr("class", "labels")
+            .selectAll("text")
+            .data(allPositionedNodes)
+            .enter().append("text")
+            .attr("x", d => d.x + (d.id.includes("passer") ? -15 : 15))
+            .attr("y", d => d.y + 5)
+            .attr("text-anchor", d => d.id.includes("passer") ? "end" : "start")
+            .text(d => d.playerName + " (" + (d.id.includes("passer") ? d.outgoing : d.incoming) + ")")
+            .style("font-size", "12px");
         }
 
-
-
-
-        
-    </script>
+  </script>
 </body>
 </html>
