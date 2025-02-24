@@ -63,6 +63,9 @@
       <option value="out-degree">Out-Degree</option>
     </select>
     <br>
+    <label for="player-search-A">Search Player:</label>
+    <input type="text" id="player-search-A" oninput="updatePlayerSearch('A')" placeholder="Enter player name">
+    <br>
     <svg id="svg-A" width="700" height="600"></svg>
   </div>
 
@@ -84,6 +87,9 @@
       <option value="in-degree" selected>In-Degree</option>
       <option value="out-degree">Out-Degree</option>
     </select>
+    <br>
+    <label for="player-search-B">Search Player:</label>
+    <input type="text" id="player-search-B" oninput="updatePlayerSearch('B')" placeholder="Enter player name">
     <br>
     <svg id="svg-B" width="700" height="600"></svg>
   </div>
@@ -131,6 +137,10 @@
         1610612764: "Washington Wizards"
     };
 
+    var prevSelection = {
+      A: { season: null, team: null, edgeType: null },
+      B: { season: null, team: null, edgeType: null }
+    };
 
     // Global raw data
     var allNodes = [], allLinks = [];
@@ -142,6 +152,9 @@
       'A': { nodes: [], links: [] },
       'B': { nodes: [], links: [] }
     };
+
+    // Store the current search term for persistence
+    var searchTermState = { A: "", B: "" };
 
     // Force simulations for each graph
     var simulations = {
@@ -159,65 +172,27 @@
       allNodes = data.nodes;
       allLinks = data.links;
 
-      // // Gather all distinct teams and seasons
-      // allNodes.forEach(d => {
-      //   teamNames.add(d.teamName.trim());
-      //   seasonYears.add(d.season);
-      // });
-
       let teamIDs = new Set();
       allNodes.forEach(d => {
           if (validNBATeamIDs.has(d.group)) {
-              teamIDs.add(d.group); // Store only valid NBA team IDs
+              teamIDs.add(d.group);
               teamNames.add(d.teamName.trim());
               seasonYears.add(d.season);
           }
           seasonYears.add(d.season);
       });
 
-
-      // Sort them for consistent dropdown ordering
+      // Sort seasons and teams
       let sortedSeasons = Array.from(seasonYears).map(Number).sort((a, b) => a - b);
-      // Extract unique team names from dataset while filtering by valid team IDs
       let teamIdToName = {};
       allNodes.forEach(d => {
           if (validNBATeamIDs.has(d.group)) {
-              teamIdToName[d.group] = d.teamName.trim(); // Store team name from JSON
+              teamIdToName[d.group] = d.teamName.trim();
           }
       });
-
-      // Sort teams dynamically based on names from JSON
       let sortedTeams = Object.entries(teamIdToName)
-          .sort((a, b) => a[1].localeCompare(b[1])) // Sort by team name
-          .map(entry => ({ id: entry[0], name: entry[1] })); // Convert back to list
-
-
-
-      // Populate dropdowns for both graphs
-      // ['A', 'B'].forEach(graphLabel => {
-      //   // Seasons
-      //   let seasonDropdown = d3.select("#season-select-" + graphLabel);
-      //   sortedSeasons.forEach(season => {
-      //     seasonDropdown.append("option")
-      //       .attr("value", season)
-      //       .text(season)
-      //       // Example: default to 2024 if you like
-      //       .property("selected", season === 2024);
-      //   });
-
-      //   // Teams
-      //   let teamDropdown = d3.select("#team-select-" + graphLabel);
-      //   sortedTeams.forEach(team => {
-      //     let option = teamDropdown.append("option")
-      //       .attr("value", team)
-      //       .text(team);
-      //     // Example: default to Lakers (Graph A), Clippers (Graph B)
-      //     if ((graphLabel === 'A' && team === "Lakers") || 
-      //         (graphLabel === 'B' && team === "Clippers")) {
-      //       option.property("selected", true);
-      //     }
-      //   });
-      // });
+          .sort((a, b) => a[1].localeCompare(b[1]))
+          .map(entry => ({ id: entry[0], name: entry[1] }));
 
       ['A', 'B'].forEach(graphLabel => {
           let seasonDropdown = d3.select("#season-select-" + graphLabel);
@@ -225,18 +200,13 @@
             seasonDropdown.append("option")
               .attr("value", season)
               .text(season)
-              // Example: default to 2024 if you like
               .property("selected", season === 2024);
           });
           let teamDropdown = d3.select("#team-select-" + graphLabel);
-
           sortedTeams.forEach(team => {
-              // let teamName = nbaTeamIdToName[teamId] || "Unknown Team"; // Get the correct team name
               let option = teamDropdown.append("option")
-                  .attr("value", team.name) // Store team ID
-                  .text(team.name); // Use team name from JSON
-
-              // Example: Default Lakers for Graph A, Clippers for Graph B
+                  .attr("value", team.name)
+                  .text(team.name);
               if ((graphLabel === 'A' && team.name.includes("Lakers")) || 
                   (graphLabel === 'B' && team.name.includes("Clippers"))) {
                   option.property("selected", true);
@@ -244,38 +214,48 @@
           });
       });
 
-
       // Initial draws
       updateGraph('A');
       updateGraph('B');
     });
 
-    // Filter and draw a graph
+    // Update and draw graph based on season/team/edge type changes
     function updateGraph(graphLabel) {
-      
-      // 1) Get user selections
       let season = document.getElementById("season-select-" + graphLabel).value;
       let team = document.getElementById("team-select-" + graphLabel).value.trim();
       let edgeType = document.getElementById("edge-type-" + graphLabel).value;
       let svg = d3.select("#svg-" + graphLabel);
       let width = +svg.attr("width"), height = +svg.attr("height");
-      
-      // 2) Filter and **copy** nodes
-      let filteredNodes = allNodes
-        .filter(d => (!season || d.season == season) &&
-                     (!team || d.teamName.trim() === team))
-        // Critical: create a copy so we don't mutate the global reference
-        .map(d => Object.assign({}, d));
 
+      let onlyEdgeChange = (
+        prevSelection[graphLabel].season === season &&
+        prevSelection[graphLabel].team === team &&
+        prevSelection[graphLabel].edgeType !== edgeType
+      );
 
-      // 3) Filter and **copy** links
+      prevSelection[graphLabel].season = season;
+      prevSelection[graphLabel].team = team;
+      prevSelection[graphLabel].edgeType = edgeType;
+
+      // Filter nodes by season and team
+      let uniqueNodes = new Map();
+      allNodes.forEach(d => {
+        if ((!season || d.season == season) && (!team || d.teamName.trim() === team)) {
+          if (!uniqueNodes.has(d.id)) {
+            uniqueNodes.set(d.id, Object.assign({}, d));
+          }
+        }
+      });
+      let filteredNodes = Array.from(uniqueNodes.values());
+
+      // Filter links based on filtered nodes
       let nodeIDs = new Set(filteredNodes.map(d => d.id));
       let filteredLinks = allLinks
         .filter(d => nodeIDs.has(d.source) && nodeIDs.has(d.target) &&
-                     (!season || d.season == season))
+                    (!season || d.season == season))
         .map(d => Object.assign({}, d));
 
-      // 4) Compute in/out-degree for node sizing
+      // Compute degree for node sizing
       let degreeMap = new Map(filteredNodes.map(n => [n.id, 0]));
       filteredLinks.forEach(link => {
         if (edgeType === "in-degree") {
@@ -286,74 +266,151 @@
       });
       filteredNodes.forEach(n => n.degree = degreeMap.get(n.id) || 0);
 
-      // 5) Store these copies in graphData
-      graphData[graphLabel].nodes = filteredNodes;
-      graphData[graphLabel].links = filteredLinks;
+      // Convert link sources/targets to node objects
+      let nodeMap = new Map(filteredNodes.map(d => [d.id, d]));
+      let processedLinks = filteredLinks.map(l => ({
+        source: nodeMap.get(l.source),
+        target: nodeMap.get(l.target),
+        value: l.value
+      })).filter(l => l.source && l.target);
 
-      // If the graph is already drawn, only update node sizes
-      // if (simulations[graphLabel]) {
-      //     let svg = d3.select("#svg-" + graphLabel);
-      //     let container = svg.select("g");
+      if (onlyEdgeChange && simulations[graphLabel]) {
+        let simulation = simulations[graphLabel];
+        let currentNodes = simulation.nodes();
+        filteredNodes.forEach(n => {
+          let existing = currentNodes.find(x => x.id === n.id);
+          if (existing) {
+            n.x = existing.x;
+            n.y = existing.y;
+            n.vx = existing.vx;
+            n.vy = existing.vy;
+          }
+        });
+        simulation.nodes(filteredNodes);
+        simulation.force("link").links(processedLinks);
+        simulation.alpha(0.3).restart();
 
-      //     // Update the radius of existing nodes
-      //     container.selectAll(".nodes circle")
-      //         .data(filteredNodes, d => d.id)  // Ensure data binding by ID
-      //         .transition().duration(500)  // Smooth transition for size change
-      //         .attr("r", d => Math.sqrt(d.degree) + 5);
-
-      //     // return; // Stop further updates to prevent re-rendering
-      // }
-
-      // 6) (Re)create the force simulation for this graph
-      simulations[graphLabel] = d3.forceSimulation()
+        svg.selectAll(".nodes circle")
+          .data(filteredNodes, d => d.id)
+          .attr("r", d => Math.sqrt(d.degree) + 5);
+        svg.selectAll(".links path")
+          .data(processedLinks)
+          .attr("stroke-width", d => Math.sqrt(d.value) + 1);
+      } else {
+        graphData[graphLabel].nodes = filteredNodes;
+        graphData[graphLabel].links = filteredLinks;
+        simulations[graphLabel] = d3.forceSimulation()
           .force("link", d3.forceLink().id(d => d.id).distance(200))
           .force("charge", d3.forceManyBody().strength(-300))
           .force("center", d3.forceCenter(width / 2, height / 2))
           .force("collide", d3.forceCollide().radius(30).strength(1));
+        simulations[graphLabel].alpha(1).restart();
+        drawGraph(graphLabel, svg, width, height);
+      }
 
-      // Start with a higher alpha for better layout
-      simulations[graphLabel].alpha(1).restart();
+      if (document.getElementById("player-search-" + graphLabel).value.trim() !== "") {
+        updatePlayerSearch(graphLabel);
+      }
 
-      // 7) Draw or redraw (only the first time)
-      drawGraph(graphLabel, svg, width, height);
     }
 
+    // Update persistent player search highlighting
+    function updatePlayerSearch(graphLabel) {
+      // Get the search term and save state
+      let searchTerm = document.getElementById("player-search-" + graphLabel)
+                          .value.toLowerCase().trim();
+      searchTermState[graphLabel] = searchTerm;
+      
+      // Retrieve current nodes (already filtered by season/team)
+      let nodes = graphData[graphLabel].nodes;
+      
+      // Compute direct matches (matchedSet)
+      let matchedNodes = nodes.filter(d => 
+        d.playerName && d.playerName.toLowerCase().includes(searchTerm)
+      );
+      let matchedSet = new Set(matchedNodes.map(d => d.id));
+      
+      // Compute highlightSet: direct matches plus adjacent nodes on relevant edges.
+      let highlightSet = new Set(matchedSet);
+      let edgeType = document.getElementById("edge-type-" + graphLabel).value;
+      
+      // Create a local processedLinks array from the current links
+      let nodeMap = new Map(nodes.map(d => [d.id, d]));
+      let processedLinks = graphData[graphLabel].links.map(l => ({
+        source: nodeMap.get(l.source),
+        target: nodeMap.get(l.target),
+        value: l.value
+      })).filter(l => l.source && l.target);
+      
+      // For in-degree: if a link's target is directly matched, add both endpoints.
+      // For out-degree: if a link's source is directly matched, add both endpoints.
+      processedLinks.forEach(link => {
+        if (edgeType === "in-degree") {
+          if (matchedSet.has(link.target.id)) {
+            highlightSet.add(link.source.id);
+            highlightSet.add(link.target.id);
+          }
+        } else { // out-degree
+          if (matchedSet.has(link.source.id)) {
+            highlightSet.add(link.source.id);
+            highlightSet.add(link.target.id);
+          }
+        }
+      });
+      
+      let svg = d3.select("#svg-" + graphLabel);
+      
+      // Update nodes: show full opacity if in highlightSet; otherwise, dim them.
+      svg.selectAll(".nodes circle")
+        .style("opacity", d => highlightSet.has(d.id) ? 1 : 0.2);
+      
+      // Update links:
+      // For stroke opacity and marker-end:
+      // • When in-degree is selected, check if d.target is a direct match.
+      // • When out-degree is selected, check if d.source is a direct match.
+      svg.selectAll(".links path")
+        .style("stroke-opacity", d => {
+          if (edgeType === "in-degree") {
+            return matchedSet.has(d.target.id) ? 0.6 : 0.1;
+          } else {
+            return matchedSet.has(d.source.id) ? 0.6 : 0.1;
+          }
+        })
+        .attr("marker-end", d => {
+          if (edgeType === "in-degree") {
+            return matchedSet.has(d.target.id) ? "url(#arrowhead)" : "none";
+          } else {
+            return matchedSet.has(d.source.id) ? "url(#arrowhead)" : "none";
+          }
+        });
+    }
+
+
     function drawGraph(graphLabel, svg, width, height) {
-      // 1) Clear existing content
       svg.selectAll("*").remove();
-
-      // 2) Add zoomable container
       let container = svg.append("g");
-
       let zoom = d3.zoom()
-          .scaleExtent([0.01, 4]) // Allow zooming between 50% (zoomed out) and 200% (zoomed in)
+          .scaleExtent([0.01, 4])
           .on("zoom", () => container.attr("transform", d3.event.transform));
-
       svg.call(zoom);
-
       svg.append("defs").append("marker")
-        .attr("id", "arrowhead")  // Ensure consistent ID
+        .attr("id", "arrowhead")
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 12)  // Adjusted for proper visibility
+        .attr("refX", 12)
         .attr("refY", 0)
-        .attr("markerWidth", 4)  // Small arrow size
-        .attr("markerHeight", 4) // Small arrow size
+        .attr("markerWidth", 4)
+        .attr("markerHeight", 4)
         .attr("orient", "auto")
         .append("path")
-        .attr("d", "M0,-3L6,0L0,3")  // Smaller triangle
+        .attr("d", "M0,-3L6,0L0,3")
         .attr("fill", "#999")
-        .attr("fill-opacity", 0.75);  // Set opacity same as links
+        .attr("fill-opacity", 0.75);
 
-      // 4) Apply an initial zoom-out transformation (80% of original size)
       svg.call(zoom.transform, d3.zoomIdentity.scale(0.6));
-      // svg.call(d3.zoom().on("zoom", () => container.attr("transform", d3.event.transform)));
 
-      // 3) Extract the data for this graph
       let nodes = graphData[graphLabel].nodes;
       let links = graphData[graphLabel].links;
       let simulation = simulations[graphLabel];
-
-      // 4) Convert link sources/targets to actual node objects
       let nodeMap = new Map(nodes.map(d => [d.id, d]));
       let processedLinks = links.map(l => ({
         source: nodeMap.get(l.source),
@@ -361,7 +418,7 @@
         value: l.value
       })).filter(l => l.source && l.target);
 
-      // 5) Identify bidirectional links
+      // Identify bidirectional links
       let linkCount = new Map();
       processedLinks.forEach(l => {
         let key = l.source.id + "-" + l.target.id;
@@ -383,10 +440,9 @@
         .attr("stroke-opacity", 0.6)
         .attr("stroke-width", d => Math.sqrt(d.value) + 1)
         .attr("fill", "none")
-        .attr("marker-end", "url(#arrowhead)") // Corrected reference
+        .attr("marker-end", "url(#arrowhead)")
         .style("stroke-linecap", "round");
 
-      // 7) Create node elements
       let node = container.append("g")
         .attr("class", "nodes")
         .selectAll("circle")
@@ -400,42 +456,35 @@
           .on("end", d => dragended(d, simulation))
         );
 
-      // 8) Add a tooltip
       let tooltip = d3.select("body").append("div")
         .attr("class", "tooltip")
         .style("visibility", "hidden");
 
-        node.on("mouseover", function(event) {
+      node.on("mouseover", function(event) {
           let d = d3.select(this).datum();
-          
-          // Get the selected edge type (in-degree or out-degree)
           let edgeType = document.getElementById("edge-type-" + graphLabel).value;
-
-          // Highlight only connected links and arrows based on edge type
+          // Temporarily highlight connected links based on edge type
           link.style("stroke-opacity", linkData => {
               if (edgeType === "in-degree") {
-                  return linkData.target.id === d.id ? 0.6 : 0.1;  // Highlight incoming edges
+                  return linkData.target.id === d.id ? 0.6 : 0.1;
               } else {
-                  return linkData.source.id === d.id ? 0.6 : 0.1;  // Highlight outgoing edges
+                  return linkData.source.id === d.id ? 0.6 : 0.1;
               }
           });
-
           link.attr("marker-end", linkData => {
               if (edgeType === "in-degree") {
-                  return linkData.target.id === d.id ? "url(#arrowhead)" : "none";  // Highlight incoming edges
+                  return linkData.target.id === d.id ? "url(#arrowhead)" : "none";
               } else {
-                  return linkData.source.id === d.id ? "url(#arrowhead)" : "none";  // Highlight outgoing edges
+                  return linkData.source.id === d.id ? "url(#arrowhead)" : "none";
               }
           });
-
-          // Highlight only connected nodes based on edge type
+          // Highlight connected nodes
           node.style("opacity", nodeData => {
               return nodeData.id === d.id || processedLinks.some(link => 
                   (edgeType === "in-degree" && link.target.id === d.id && link.source.id === nodeData.id) ||
                   (edgeType === "out-degree" && link.source.id === d.id && link.target.id === nodeData.id)
               ) ? 1 : 0.2;
           });
-
           tooltip.style("visibility", "visible")
               .html(
                   `<b>${d.playerName || "Unknown"}</b><br>
@@ -447,51 +496,40 @@
               .style("left", (event.pageX + 10) + "px");
       })
       .on("mouseout", function() {
-          // Reset link, arrow, and node opacity
-          link.style("stroke-opacity", 0.6);
-          link.attr("marker-end", "url(#arrowhead)");
-          node.style("opacity", 1);
+          // On mouseout, check if a search term is active.
+          let currentSearch = document.getElementById("player-search-" + graphLabel).value.toLowerCase().trim();
+          if (currentSearch) {
+              updatePlayerSearch(graphLabel);
+          } else {
+              link.style("stroke-opacity", 0.6);
+              link.attr("marker-end", "url(#arrowhead)");
+              node.style("opacity", 1);
+          }
           tooltip.style("visibility", "hidden");
       });
 
-
-      // 9) Update simulation with new data
       simulation.nodes(nodes).on("tick", () => {
         link.attr("d", function(d) {
-          // Check if bidirectional
           let key = d.source.id + "-" + d.target.id;
           let revKey = d.target.id + "-" + d.source.id;
           let isBidirectional = linkCount.has(revKey);
-
           let dx = d.target.x - d.source.x;
           let dy = d.target.y - d.source.y;
           let distance = Math.sqrt(dx * dx + dy * dy);
-
-          // Normalize direction vector
           let normX = dx / (distance || 1);
           let normY = dy / (distance || 1);
-          
-          // Get radius of source & target nodes to prevent overlap
-          let radiusSource = Math.sqrt(d.source.degree) + 5; // Source node size
-          let radiusTarget = Math.sqrt(d.target.degree) + 5 + 2; // Target node + extra padding for arrow
-          
-          // Perpendicular offset for bidirectional links
+          let radiusSource = Math.sqrt(d.source.degree) + 5;
+          let radiusTarget = Math.sqrt(d.target.degree) + 5 + 2;
           let perpX = -normY, perpY = normX;
           let offset = isBidirectional ? 4 : 0;
-
-          // Adjusted start and end points (shorten edges to stop at node boundary)
           let x1 = d.source.x + normX * radiusSource + perpX * offset;
           let y1 = d.source.y + normY * radiusSource + perpY * offset;
           let x2 = d.target.x - normX * radiusTarget + perpX * offset;
           let y2 = d.target.y - normY * radiusTarget + perpY * offset;
-
           return `M${x1},${y1}L${x2},${y2}`;
         });
-
         node.attr("cx", d => d.x).attr("cy", d => d.y);
       });
-
-
       simulation.force("link").links(processedLinks);
       simulation.alpha(1).restart();
     }

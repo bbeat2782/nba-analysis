@@ -57,6 +57,15 @@
   </svg>
 
   <script>
+    // Define valid NBA team IDs (30 teams) – only nodes with these IDs will be included.
+    const validNBATeamIDs = new Set([
+        1610612737, 1610612738, 1610612751, 1610612766, 1610612741, 1610612739,
+        1610612742, 1610612743, 1610612765, 1610612744, 1610612745, 1610612754,
+        1610612746, 1610612747, 1610612763, 1610612748, 1610612749, 1610612750,
+        1610612740, 1610612752, 1610612760, 1610612753, 1610612755, 1610612756,
+        1610612757, 1610612758, 1610612759, 1610612761, 1610612762, 1610612764
+    ]);
+
     var svg = d3.select("svg"),
         width = +svg.attr("width"),
         height = +svg.attr("height");
@@ -88,8 +97,12 @@
       allNodes = graph.nodes;
       allLinks = graph.links;
 
+      // Only add team names if the node's group is a valid NBA team ID.
       graph.nodes.forEach(node => {
-        teamNames.add(node.teamName.trim());
+        // Convert node.group to a number (using the unary + operator)
+        if (validNBATeamIDs.has(+node.group)) {
+          teamNames.add(node.teamName.trim());
+        }
         seasonYears.add(node.season);
       });
 
@@ -103,13 +116,14 @@
           .property("selected", season === 2024);
       });
 
-      // Populate team dropdown
+      // Populate team dropdown (only 30 NBA teams)
       let sortedTeams = Array.from(teamNames).sort();
       let teamDropdown = d3.select("#team-select");
       sortedTeams.forEach(team => {
         let option = teamDropdown.append("option")
           .attr("value", team)
           .text(team);
+        // Example: default select "Lakers"
         if (team === "Lakers") {
           option.property("selected", true);
         }
@@ -142,11 +156,11 @@
         // Re-add defs since they were removed.
         svg.append("defs").html(`
             <marker id="arrow" viewBox="0 -5 10 10" refX="15" refY="0" markerWidth="6" markerHeight="6" orient="auto">
-            <path d="M0,-5L10,0L0,5" fill="#999"></path>
+              <path d="M0,-5L10,0L0,5" fill="#999"></path>
             </marker>
         `);
 
-        // Create sets of unique player IDs
+        // Create a set of unique player IDs from nodes
         let uniquePlayers = new Set(nodes.map(d => d.id));
 
         // Create left (passer/assist) and right (receiver/score) nodes
@@ -193,41 +207,39 @@
         rightNodes.forEach(d => { d.r = rightRadiusScale(d.incoming); });
 
         // --- Spacing Code: Start at the top ---
-        // Define a top margin for header text
         const topMargin = 40;
         const leftPadding = 10;
         const rightPadding = 10;
 
-        // Adjust starting Y positions to include the top margin
         leftNodes.sort((a, b) => a.playerName.localeCompare(b.playerName));
         rightNodes.sort((a, b) => a.playerName.localeCompare(b.playerName));
 
         let currentYLeft = topMargin + leftPadding;
         leftNodes.forEach(d => {
-        d.x = width * 0.25;
-        d.y = currentYLeft + d.r;
-        currentYLeft += 2 * d.r + leftPadding;
+          d.x = width * 0.25;
+          d.y = currentYLeft + d.r;
+          currentYLeft += 2 * d.r + leftPadding;
         });
 
         let currentYRight = topMargin + rightPadding;
         rightNodes.forEach(d => {
-        d.x = width * 0.75;
-        d.y = currentYRight + d.r;
-        currentYRight += 2 * d.r + rightPadding;
+          d.x = width * 0.75;
+          d.y = currentYRight + d.r;
+          currentYRight += 2 * d.r + rightPadding;
         });
 
         // Add header labels above the first node in each column
         if (leftNodes.length > 0) {
-        svg.append("text")
+          svg.append("text")
             .attr("x", leftNodes[0].x)
-            .attr("y", leftNodes[0].y - leftNodes[0].r - 5) // now safely within the SVG
+            .attr("y", leftNodes[0].y - leftNodes[0].r - 5)
             .attr("text-anchor", "middle")
             .text("Assists")
             .style("font-size", "16px")
             .style("font-weight", "bold");
         }
         if (rightNodes.length > 0) {
-        svg.append("text")
+          svg.append("text")
             .attr("x", rightNodes[0].x)
             .attr("y", rightNodes[0].y - rightNodes[0].r - 5)
             .attr("text-anchor", "middle")
@@ -242,102 +254,101 @@
 
         // Map links to use positioned nodes
         let positionedLinks = processedLinks.map(d => ({
-            source: nodeMap.get(`${d.source.originalId}-passer`),
-            target: nodeMap.get(`${d.target.originalId}-receiver`),
-            value: d.value
+          source: nodeMap.get(`${d.source.originalId}-passer`),
+          target: nodeMap.get(`${d.target.originalId}-receiver`),
+          value: d.value
         })).filter(d => d.source && d.target);
 
         // Draw links
         svg.append("g")
-            .attr("class", "links")
-            .selectAll("line")
-            .data(positionedLinks)
-            .enter().append("line")
-            .attr("x1", d => d.source.x)
-            .attr("y1", d => d.source.y)
-            .attr("x2", d => d.target.x)
-            .attr("y2", d => d.target.y)
-            .attr("stroke-width", d => Math.sqrt(d.value) * 2)
-            .attr("stroke", "#555")
-            .attr("opacity", 0.7)
-            .attr("class", d => `link link-source-${d.source.originalId} link-target-${d.target.originalId}`);
+          .attr("class", "links")
+          .selectAll("line")
+          .data(positionedLinks)
+          .enter().append("line")
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y)
+          .attr("stroke-width", d => Math.sqrt(d.value) * 2)
+          .attr("stroke", "#555")
+          .attr("opacity", 0.7)
+          .attr("class", d => `link link-source-${d.source.originalId} link-target-${d.target.originalId}`);
 
         // Draw nodes
         svg.append("g")
-            .attr("class", "nodes")
-            .selectAll("circle")
-            .data(allPositionedNodes)
-            .enter().append("circle")
-            .attr("cx", d => d.x)
-            .attr("cy", d => d.y)
-            .attr("r", d => d.r)
-            .attr("fill", d => color(d.teamName.trim()))
-            .attr("class", d => "node-" + d.originalId)
-            .each(function(d) { d3.select(this).datum(d); })
-            .on("mouseover", function(d) {
-                if (lockedNode && lockedNode.originalId !== d.originalId) return;
-                var datum = d3.select(this).datum();
-                if (!datum || !datum.originalId) return;
+          .attr("class", "nodes")
+          .selectAll("circle")
+          .data(allPositionedNodes)
+          .enter().append("circle")
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y)
+          .attr("r", d => d.r)
+          .attr("fill", d => color(d.teamName.trim()))
+          .attr("class", d => "node-" + d.originalId)
+          .each(function(d) { d3.select(this).datum(d); })
+          .on("mouseover", function(d) {
+            if (lockedNode && lockedNode.originalId !== d.originalId) return;
+            var datum = d3.select(this).datum();
+            if (!datum || !datum.originalId) return;
 
-                d3.selectAll(".link").style("opacity", 0.1);
-                d3.selectAll(".link-source-" + datum.originalId)
-                .style("stroke", "blue")
-                .style("opacity", 1);
-                d3.selectAll(".link-target-" + datum.originalId)
-                .style("stroke", "red")
-                .style("opacity", 1);
+            d3.selectAll(".link").style("opacity", 0.1);
+            d3.selectAll(".link-source-" + datum.originalId)
+              .style("stroke", "blue")
+              .style("opacity", 1);
+            d3.selectAll(".link-target-" + datum.originalId)
+              .style("stroke", "red")
+              .style("opacity", 1);
 
-                var connectedNodes = new Set();
-                d3.selectAll(".nodes circle").each(function(nodeData) {
-                if (nodeData.originalId === datum.originalId) {
-                    connectedNodes.add(nodeData.id);
-                }
-                });
-                d3.selectAll(".link-source-" + datum.originalId).each(function(linkData) {
-                if (linkData.target && linkData.target.id) {
-                    connectedNodes.add(linkData.target.id);
-                }
-                });
-                d3.selectAll(".link-target-" + datum.originalId).each(function(linkData) {
-                if (linkData.source && linkData.source.id) {
-                    connectedNodes.add(linkData.source.id);
-                }
-                });
-                d3.selectAll(".nodes circle").style("opacity", function(nodeData) {
-                return connectedNodes.has(nodeData.id) ? 1 : 0.3;
-                });
-                d3.selectAll(".labels text").style("opacity", function(labelData) {
-                return connectedNodes.has(labelData.id) ? 1 : 0.3;
-                });
-            })
-            .on("mouseout", function(d) {
-                if (lockedNode) return;
-                d3.selectAll(".link")
-                .style("stroke", "#555")
-                .style("opacity", 0.7);
-                d3.selectAll(".nodes circle").style("opacity", 1);
-                d3.selectAll(".labels text").style("opacity", 1);
-            })
-            .on("click", function(d) {
-                d3.event.stopPropagation();
-                var datum = d3.select(this).datum();
-                if (!datum || !datum.originalId) return;
-                lockedNode = datum;
+            var connectedNodes = new Set();
+            d3.selectAll(".nodes circle").each(function(nodeData) {
+              if (nodeData.originalId === datum.originalId) {
+                connectedNodes.add(nodeData.id);
+              }
             });
+            d3.selectAll(".link-source-" + datum.originalId).each(function(linkData) {
+              if (linkData.target && linkData.target.id) {
+                connectedNodes.add(linkData.target.id);
+              }
+            });
+            d3.selectAll(".link-target-" + datum.originalId).each(function(linkData) {
+              if (linkData.source && linkData.source.id) {
+                connectedNodes.add(linkData.source.id);
+              }
+            });
+            d3.selectAll(".nodes circle").style("opacity", function(nodeData) {
+              return connectedNodes.has(nodeData.id) ? 1 : 0.3;
+            });
+            d3.selectAll(".labels text").style("opacity", function(labelData) {
+              return connectedNodes.has(labelData.id) ? 1 : 0.3;
+            });
+          })
+          .on("mouseout", function(d) {
+            if (lockedNode) return;
+            d3.selectAll(".link")
+              .style("stroke", "#555")
+              .style("opacity", 0.7);
+            d3.selectAll(".nodes circle").style("opacity", 1);
+            d3.selectAll(".labels text").style("opacity", 1);
+          })
+          .on("click", function(d) {
+            d3.event.stopPropagation();
+            var datum = d3.select(this).datum();
+            if (!datum || !datum.originalId) return;
+            lockedNode = datum;
+          });
 
         // Draw labels for nodes
         svg.append("g")
-            .attr("class", "labels")
-            .selectAll("text")
-            .data(allPositionedNodes)
-            .enter().append("text")
-            .attr("x", d => d.x + (d.id.includes("passer") ? -15 : 15))
-            .attr("y", d => d.y + 5)
-            .attr("text-anchor", d => d.id.includes("passer") ? "end" : "start")
-            .text(d => d.playerName + " (" + (d.id.includes("passer") ? d.outgoing : d.incoming) + ")")
-            .style("font-size", "12px");
-        }
-
+          .attr("class", "labels")
+          .selectAll("text")
+          .data(allPositionedNodes)
+          .enter().append("text")
+          .attr("x", d => d.x + (d.id.includes("passer") ? -15 : 15))
+          .attr("y", d => d.y + 5)
+          .attr("text-anchor", d => d.id.includes("passer") ? "end" : "start")
+          .text(d => d.playerName + " (" + (d.id.includes("passer") ? d.outgoing : d.incoming) + ")")
+          .style("font-size", "12px");
+    }
   </script>
 </body>
 </html>
