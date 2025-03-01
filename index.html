@@ -250,10 +250,17 @@
 
       // Filter links based on filtered nodes
       let nodeIDs = new Set(filteredNodes.map(d => d.id));
+      // let filteredLinks = allLinks
+      //   .filter(d => nodeIDs.has(d.source) && nodeIDs.has(d.target) &&
+      //               (!season || d.season == season))
+      //   .map(d => Object.assign({}, d));
+      // Filter links based on filtered nodes and, if no season/team filter, only include links with value > 10
       let filteredLinks = allLinks
         .filter(d => nodeIDs.has(d.source) && nodeIDs.has(d.target) &&
-                    (!season || d.season == season))
+                    (!season || d.season == season) &&
+                    (!(season === "" && team === "") || d.value > 30))
         .map(d => Object.assign({}, d));
+
 
       // Compute degree for node sizing
       let degreeMap = new Map(filteredNodes.map(n => [n.id, 0]));
