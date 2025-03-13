@@ -23,7 +23,10 @@ def degree_distribution(degree_sequence):
     return unique, pk
 
 
-def print_top_players(metric_dict, title, top_n=10):
+def print_top_players(metric_dict, title, player_id_to_name, top_n=10):
+    metric_dict = {player_id_to_name.get(player_id, player_id): centrality 
+                              for player_id, centrality in metric_dict.items()}
+
     sorted_players = sorted(metric_dict.items(), key=lambda x: x[1], reverse=True)[:top_n]
     print(f"\n🔥 Top {top_n} Players by {title}:")
     for player, score in sorted_players:

@@ -11,9 +11,23 @@ from structural_analysis_util import plot_degree_pdf, degree_distribution, print
 file_path = "data/nba_player_interactions_2001_2025.csv"
 df = pd.read_csv(file_path)
 
+# Only keep nba teams
+nba_team_ids = [1610612737, 1610612738, 1610612751, 1610612766, 1610612741, 1610612739,
+        1610612742, 1610612743, 1610612765, 1610612744, 1610612745, 1610612754,
+        1610612746, 1610612747, 1610612763, 1610612748, 1610612749, 1610612750,
+        1610612740, 1610612752, 1610612760, 1610612753, 1610612755, 1610612756,
+        1610612757, 1610612758, 1610612759, 1610612761, 1610612762, 1610612764]
+df = df[df['PLAYER1_TEAM_ID'].isin(nba_team_ids)]
+
 # NOTE Need to choose how we will handle this
-df = df[(df['Season'] == 2023) & (df['EVENTMSGTYPE'] == 1)]
-#df = df[df['EVENTMSGTYPE'] == 1]
+df = df[(df['Season'] == 2023)]
+
+players_df = pd.concat([
+    df[['PLAYER1_ID', 'PLAYER1_NAME']].rename(columns={'PLAYER1_ID': 'PLAYER_ID', 'PLAYER1_NAME': 'PLAYER_NAME'}),
+    df[['PLAYER2_ID', 'PLAYER2_NAME']].rename(columns={'PLAYER2_ID': 'PLAYER_ID', 'PLAYER2_NAME': 'PLAYER_NAME'})
+]).drop_duplicates()
+# Create a mapping from PLAYER_ID to PLAYER_NAME
+player_id_to_name = dict(zip(players_df['PLAYER_ID'], players_df['PLAYER_NAME']))
 
 # Create directed graph
 G = nx.DiGraph()
@@ -155,14 +169,13 @@ plt.xlabel("Degree k (Passes Made)")
 plt.ylabel("Average Neighbor Degree k_nn(k)")
 plt.title("Degree Correlation: k_nn(k) vs. k")
 plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+plt.tight_layout()
 plt.savefig("figures/DegreeCorrelation.png")
 
 # Compute assortativity coefficient (Pearson correlation of degrees at each edge)
 assortativity = nx.degree_assortativity_coefficient(G, weight='weight')
 print(f"Degree Assortativity Coefficient: {assortativity:.4f}")
 
-# ------------------------ Path Length ------------------------
-# TODO
 
 # ------------------------ Clustering Coefficient ------------------------
 
@@ -182,8 +195,6 @@ print(f"Global Clustering (Random Network): {global_C_random:.4f}")
 
 # ------------------------ Centrality Measures ------------------------
 
-# TODO Need to grab player names by their ids from nba_api
-
 # --- 1. Degree Centrality ---
 in_degree_centrality = nx.in_degree_centrality(G)
 out_degree_centrality = nx.out_degree_centrality(G)
@@ -199,11 +210,11 @@ pagerank = nx.pagerank(G, weight="weight")
 # --- 4. Hubs & Authorities (HITS Algorithm) ---
 hubs, authorities = nx.hits(G, max_iter=1000, normalized=True)  # Finds important playmakers & scorers
 
-print_top_players(out_degree_centrality, "Out-Degree Centrality (Playmakers)")
-print_top_players(in_degree_centrality, "In-Degree Centrality (Scorers)")
-print_top_players(closeness_centrality, "Closeness Centrality")
-print_top_players(harmonic_centrality, "Harmonic Centrality")
-print_top_players(eigenvector_centrality, "Eigenvector Centrality")
-print_top_players(pagerank, "PageRank")
-print_top_players(hubs, "Hubs (Top Passers)")
-print_top_players(authorities, "Authorities (Top Receivers)")
+print_top_players(out_degree_centrality, "Out-Degree Centrality (Playmakers)", player_id_to_name)
+print_top_players(in_degree_centrality, "In-Degree Centrality (Scorers)", player_id_to_name)
+print_top_players(closeness_centrality, "Closeness Centrality", player_id_to_name)
+print_top_players(harmonic_centrality, "Harmonic Centrality", player_id_to_name)
+print_top_players(eigenvector_centrality, "Eigenvector Centrality", player_id_to_name)
+print_top_players(pagerank, "PageRank", player_id_to_name)
+print_top_players(hubs, "Hubs (Top Passers)", player_id_to_name)
+print_top_players(authorities, "Authorities (Top Receivers)", player_id_to_name)
